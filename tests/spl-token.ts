@@ -76,6 +76,47 @@ describe("spl-token", () => {
 
     console.log("Your transaction signature", tx);
   });
+
+  it("should transfer 1 token from payer_mint_ata to another_mint_ata", async () => {
+    try {
+      const anotherWallet = anchor.web3.Keypair.generate();
+
+      const [splTokenMint, _1] = await findSplTokenMintAddress();
+
+      const [vaultMint, _2] = await findVaultAddress();
+
+      const [payerMintAta, _3] = await findAssociatedTokenAccount(
+        payer.publicKey,
+        splTokenMint
+      );
+
+      const [anotherMintAta, _4] = await findAssociatedTokenAccount(
+        anotherWallet.publicKey,
+        splTokenMint
+      );
+
+      const tx = await program.methods
+        .transferTokenToAnother()
+        .accounts({
+          splTokenMint: splTokenMint,
+          vault: vaultMint,
+          associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+          tokenProgram: TOKEN_PROGRAM_ID,
+          systemProgram: SystemProgram.programId,
+          payerMintAta: payerMintAta,
+          payer: payer.publicKey,
+          anotherMintAta: anotherMintAta,
+          rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+          anotherAccount: anotherWallet.publicKey,
+        })
+        .signers([payer])
+        .rpc();
+
+      console.log("Your transaction signature", tx);
+    } catch (err) {
+      console.log(err);
+    }
+  });
 });
 
 // find spl token mint address
