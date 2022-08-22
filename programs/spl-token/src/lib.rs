@@ -1,5 +1,5 @@
 use anchor_lang::prelude::*;
-use anchor_spl::{token::{self, Mint, Token, TokenAccount, FreezeAccount, ThawAccount}, associated_token::AssociatedToken};
+use anchor_spl::{token::{self, Mint, Token, TokenAccount, FreezeAccount, ThawAccount, Burn}, associated_token::AssociatedToken};
 
 declare_id!("29iiLtNregFkwH4n4K95GrKYcGUGC3F6D5thPE2jWQQs");
 
@@ -68,6 +68,20 @@ pub mod spl_token {
             },
         );
         token::thaw_account(cpi_context)?;
+        Ok(())
+    }
+
+
+    pub fn burn_token(ctx : Context<BurnToken>) -> Result<()> {
+        let cpi_context = CpiContext::new(
+            ctx.accounts.token_program.to_account_info(),
+            Burn {
+                from : ctx.accounts.payer_mint_ata.to_account_info(),
+                mint : ctx.accounts.spl_token_mint.to_account_info(),
+                authority : ctx.accounts.payer.to_account_info()
+            },
+        );
+        token::burn(cpi_context, 1)?; // we burn 1 token 
         Ok(())
     }
 
@@ -237,9 +251,9 @@ pub struct FreezeTokenAccount<'info> {
     pub system_program: Program<'info, System>, // ---> 5
     pub token_program: Program<'info, Token>,   // ---> 6
     
-    pub rent: Sysvar<'info, Rent>, // ---> 6
+    pub rent: Sysvar<'info, Rent>, // ---> 7
 
-    pub associated_token_program : Program<'info, AssociatedToken>,  // ---> 9
+    pub associated_token_program : Program<'info, AssociatedToken>,  // ---> 8
 
 }
 
@@ -279,9 +293,49 @@ pub struct UnfreezeTokenAccount<'info> {
     pub system_program: Program<'info, System>, // ---> 5
     pub token_program: Program<'info, Token>,   // ---> 6
     
-    pub rent: Sysvar<'info, Rent>, // ---> 6
+    pub rent: Sysvar<'info, Rent>, // ---> 7
 
-    pub associated_token_program : Program<'info, AssociatedToken>,  // ---> 9
+    pub associated_token_program : Program<'info, AssociatedToken>,  // ---> 8
+}
+
+
+// Burn token 
+#[derive(Accounts)]
+pub struct BurnToken<'info> {
+    #[account(
+        mut,
+         seeds = [
+            b"spl-token-mint".as_ref(),
+         ],
+        bump = vault.spl_token_mint_bump,
+    )]
+    pub spl_token_mint: Account<'info, Mint>, // ---> 1
+
+    #[account(
+        seeds = [
+            b"vault"
+        ],
+        bump = vault.bump, // --> 2
+    )]
+    pub vault : Account<'info, Vault>, 
+
+    #[account(mut)]
+    pub payer : Signer<'info>, // ---> 3
+
+
+    #[account(
+        mut,
+        associated_token::mint = spl_token_mint,
+        associated_token::authority = payer
+    )]
+    pub payer_mint_ata: Box<Account<'info, TokenAccount>>,  // --> 4
+
+    pub system_program: Program<'info, System>, // ---> 5
+    pub token_program: Program<'info, Token>,   // ---> 6
+    
+    pub rent: Sysvar<'info, Rent>, // ---> 7
+
+    pub associated_token_program : Program<'info, AssociatedToken>,  // ---> 8
 }
 
 
