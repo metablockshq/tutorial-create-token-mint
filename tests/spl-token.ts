@@ -16,9 +16,11 @@ describe("spl-token", () => {
   anchor.setProvider(provider);
 
   const payer = anchor.web3.Keypair.generate();
+  const anotherWallet = anchor.web3.Keypair.generate();
 
   before("Add sols to wallet ", async () => {
     await addSols(provider, payer.publicKey);
+    await addSols(provider, anotherWallet.publicKey); // add sols to another wallet
   });
 
   const program = anchor.workspace.SplToken as Program<SplToken>;
@@ -79,8 +81,6 @@ describe("spl-token", () => {
 
   it("should transfer 1 token from payer_mint_ata to another_mint_ata", async () => {
     try {
-      const anotherWallet = anchor.web3.Keypair.generate();
-
       const [splTokenMint, _1] = await findSplTokenMintAddress();
 
       const [vaultMint, _2] = await findVaultAddress();
@@ -108,6 +108,38 @@ describe("spl-token", () => {
           anotherMintAta: anotherMintAta,
           rent: anchor.web3.SYSVAR_RENT_PUBKEY,
           anotherAccount: anotherWallet.publicKey,
+        })
+        .signers([payer])
+        .rpc();
+
+      console.log("Your transaction signature", tx);
+    } catch (err) {
+      console.log(err);
+    }
+  });
+
+  it("should freeze token account of another wallet ", async () => {
+    try {
+      const [splTokenMint, _1] = await findSplTokenMintAddress();
+
+      const [vaultMint, _2] = await findVaultAddress();
+
+      const [payerMintAta, _3] = await findAssociatedTokenAccount(
+        payer.publicKey,
+        splTokenMint
+      );
+
+      const tx = await program.methods
+        .freezeTokenAccount()
+        .accounts({
+          splTokenMint: splTokenMint,
+          vault: vaultMint,
+          associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+          tokenProgram: TOKEN_PROGRAM_ID,
+          systemProgram: SystemProgram.programId,
+          payerMintAta: payerMintAta,
+          rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+          payer: payer.publicKey,
         })
         .signers([payer])
         .rpc();
